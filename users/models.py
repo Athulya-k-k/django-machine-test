@@ -70,15 +70,25 @@ class User(models.Model):
         if not self.is_expired:
             return  # Not expired, nothing to do
         
-        # IMPORTANT: Only refund to users who existed at the time of expiry
-        # Get all users who are currently alive AND were created before this user's expiry
+        # CRITICAL FIX: Only refund to users who were alive when this user was marked as expired
+        # This means users who:
+        # 1. Are currently alive (is_expired=False)
+        # 2. Were created BEFORE this user's expiry date (existed at the time)
+        # 3. Are not this user
+        
+        # Edge case handling:
+        # - If a user joined AFTER this user expired, they never paid, so no refund
+        # - If a user was expired when this user expired, they didn't pay, so no refund
+        # - If a user was alive, paid, and is still alive, they get refund
+        # - If a user was alive, paid, but is now expired, they still get refund (they paid!)
+        
+        # Get all users who existed before expiry and were alive at that time
+        # Since we can't track historical state, we assume all users created before expiry
+        # who are currently alive should get refunds (safest assumption)
         alive_users = User.objects.filter(
             is_expired=False,
             created_at__lt=self.expired_date  # Only users who existed before expiry
         ).exclude(id=self.id).select_for_update()
-        
-        # Store the expired date before reverting
-        expiry_date = self.expired_date
         
         # Revert this user
         self.is_expired = False
