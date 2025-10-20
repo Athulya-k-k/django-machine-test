@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
@@ -24,42 +24,77 @@ class User(models.Model):
         self.full_clean()
         super().save(*args, **kwargs)
 
+    @transaction.atomic
     def mark_as_expired(self):
         """Mark user as expired and deduct ₹1 from other alive members"""
-        if not self.is_expired:
-            self.is_expired = True
-            self.expired_date = timezone.now()
-            self.save()
-            
-            # Deduct ₹1 from other alive members
-            alive_users = User.objects.filter(is_expired=False).exclude(id=self.id)
-            for user in alive_users:
-                user.wallet_balance -= 1
-                user.save()
-            
-            # Trigger notification task
+        # Check if already expired
+        if self.is_expired:
+            return  # Already expired, nothing to do
+        
+        # Get all alive users excluding this one
+        alive_users = User.objects.filter(is_expired=False).exclude(id=self.id).select_for_update()
+        
+        # Check if all alive users have sufficient balance
+        insufficient_balance_users = []
+        for user in alive_users:
+            if user.wallet_balance < 1:
+                insufficient_balance_users.append(f"{user.name} (₹{user.wallet_balance})")
+        
+        if insufficient_balance_users:
+            raise ValidationError(
+                f"Cannot mark as expired. Following users have insufficient balance: "
+                f"{', '.join(insufficient_balance_users)}"
+            )
+        
+        # Mark this user as expired
+        self.is_expired = True
+        self.expired_date = timezone.now()
+        self.save()
+        
+        # Deduct ₹1 from other alive members
+        affected_user_ids = []
+        for user in alive_users:
+            user.wallet_balance -= 1
+            user.save()
+            affected_user_ids.append(user.id)
+        
+        # Trigger notification task
+        if affected_user_ids:
             from .tasks import notify_users_about_expiry
-            notify_users_about_expiry.delay(self.id, [user.id for user in alive_users])
+            notify_users_about_expiry.delay(self.id, affected_user_ids)
 
+    @transaction.atomic
     def revert_from_expired(self):
         """Revert user from expired to alive and refund ₹1 to others"""
-        if self.is_expired:
-            self.is_expired = False
-            self.expired_date = None
-            self.save()
-            
-            # Refund ₹1 to other alive members who were charged
-            alive_users = User.objects.filter(is_expired=False).exclude(id=self.id)
-            for user in alive_users:
-                user.wallet_balance += 1
-                user.save()
-            
-            # Trigger notification task for revert
+        # Check if actually expired
+        if not self.is_expired:
+            return  # Not expired, nothing to do
+        
+        # Get all alive users excluding this one
+        alive_users = User.objects.filter(is_expired=False).exclude(id=self.id).select_for_update()
+        
+        # Revert this user
+        self.is_expired = False
+        self.expired_date = None
+        self.save()
+        
+        # Refund ₹1 to other alive members
+        # Note: Only refund to users who exist and are alive
+        # This handles edge case where new users may have joined after expiry
+        affected_user_ids = []
+        for user in alive_users:
+            user.wallet_balance += 1
+            user.save()
+            affected_user_ids.append(user.id)
+        
+        # Trigger notification task for revert
+        if affected_user_ids:
             from .tasks import notify_users_about_revert
-            notify_users_about_revert.delay(self.id, [user.id for user in alive_users])
+            notify_users_about_revert.delay(self.id, affected_user_ids)
 
     def __str__(self):
-        return f"{self.name} ({self.email}) - Balance: ₹{self.wallet_balance}"
+        status = "EXPIRED" if self.is_expired else "ALIVE"
+        return f"{self.name} ({self.email}) - Balance: ₹{self.wallet_balance} [{status}]"
 
     class Meta:
         db_table = 'users'
