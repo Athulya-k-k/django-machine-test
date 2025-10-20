@@ -1,0 +1,10 @@
+{% extends "admin/change_list.html" %}
+
+{% block object-tools-items %}
+    <li>
+        <a href="{% url 'admin:users_bulk_upload' %}" class="addlink" style="background-color: #417690; padding: 10px 15px; color: white; text-decoration: none; border-radius: 4px;">
+            📤 Bulk Upload CSV
+        </a>
+    </li>
+    {{ block.super }}
+{% endblock %}
