@@ -6,8 +6,12 @@
         .container { max-width: 800px; margin: 50px auto; padding: 20px; }
         .error { color: red; margin-bottom: 10px; }
         .success { color: green; }
-        .btn { background: #007cba; color: white; padding: 10px 20px; text-decoration: none; display: inline-block; margin: 5px; }
+        .warning { background: #fff3cd; border: 1px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px; }
+        .btn { background: #007cba; color: white; padding: 10px 20px; text-decoration: none; display: inline-block; margin: 5px; border: none; cursor: pointer; border-radius: 4px; }
         .btn:hover { background: #005a87; }
+        .btn-danger { background: #dc3545; }
+        .btn-danger:hover { background: #c82333; }
+        .error-list { max-height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 15px; margin: 20px 0; border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -21,21 +25,30 @@
         </div>
 
         {% if errors %}
+        <div class="warning">
+            <strong>⚠️ Upload Failed!</strong>
+            <p>No data was saved to the database due to validation errors. Please fix all errors and re-upload the CSV file.</p>
+        </div>
+
         <div class="errors">
             <h2>Errors Found:</h2>
-            {% for error in errors %}
-                <div class="error">{{ error }}</div>
-            {% endfor %}
+            <div class="error-list">
+                {% for error in errors %}
+                    <div class="error">{{ error }}</div>
+                {% endfor %}
+            </div>
             
             <div style="margin-top: 20px;">
-                <a href="{% url 'admin:users_bulk_upload' %}" class="btn">Re-upload CSV</a>
-                <a href="{% url 'admin:users_user_changelist' %}" class="btn">Back to User List</a>
-                
-                <form method="post" action="{% url 'admin:users_user_changelist' %}" style="display: inline;">
-                    {% csrf_token %}
-                    <button type="submit" name="download_error_csv" class="btn">Download Error Report</button>
-                </form>
+                <a href="{% url 'admin:users_download_error_csv' %}" class="btn btn-danger">📥 Download Error Report</a>
+                <a href="{% url 'admin:users_bulk_upload' %}" class="btn">🔄 Re-upload CSV</a>
+                <a href="{% url 'admin:users_user_changelist' %}" class="btn">← Back to User List</a>
             </div>
+        </div>
+        {% else %}
+        <div class="success">
+            <h2>✓ Upload Successful!</h2>
+            <p>All users have been successfully uploaded to the database.</p>
+            <a href="{% url 'admin:users_user_changelist' %}" class="btn">← Back to User List</a>
         </div>
         {% endif %}
     </div>
