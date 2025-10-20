@@ -46,7 +46,7 @@ class User(models.Model):
                 f"{', '.join(insufficient_balance_users)}"
             )
         
-        # Mark this user as expired
+        # Mark this user as expired FIRST
         self.is_expired = True
         self.expired_date = timezone.now()
         self.save()
@@ -70,17 +70,22 @@ class User(models.Model):
         if not self.is_expired:
             return  # Not expired, nothing to do
         
-        # Get all alive users excluding this one
-        alive_users = User.objects.filter(is_expired=False).exclude(id=self.id).select_for_update()
+        # IMPORTANT: Only refund to users who existed at the time of expiry
+        # Get all users who are currently alive AND were created before this user's expiry
+        alive_users = User.objects.filter(
+            is_expired=False,
+            created_at__lt=self.expired_date  # Only users who existed before expiry
+        ).exclude(id=self.id).select_for_update()
+        
+        # Store the expired date before reverting
+        expiry_date = self.expired_date
         
         # Revert this user
         self.is_expired = False
         self.expired_date = None
         self.save()
         
-        # Refund ₹1 to other alive members
-        # Note: Only refund to users who exist and are alive
-        # This handles edge case where new users may have joined after expiry
+        # Refund ₹1 to users who were charged
         affected_user_ids = []
         for user in alive_users:
             user.wallet_balance += 1
