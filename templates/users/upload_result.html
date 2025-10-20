@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Upload Results</title>
+    <style>
+        .container { max-width: 800px; margin: 50px auto; padding: 20px; }
+        .error { color: red; margin-bottom: 10px; }
+        .success { color: green; }
+        .btn { background: #007cba; color: white; padding: 10px 20px; text-decoration: none; display: inline-block; margin: 5px; }
+        .btn:hover { background: #005a87; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Upload Results</h1>
+        
+        <div class="summary">
+            <p><strong>Total rows processed:</strong> {{ total_count }}</p>
+            <p class="success"><strong>Successful:</strong> {{ success_count }}</p>
+            <p class="error"><strong>Errors:</strong> {{ errors|length }}</p>
+        </div>
+
+        {% if errors %}
+        <div class="errors">
+            <h2>Errors Found:</h2>
+            {% for error in errors %}
+                <div class="error">{{ error }}</div>
+            {% endfor %}
+            
+            <div style="margin-top: 20px;">
+                <a href="{% url 'admin:users_bulk_upload' %}" class="btn">Re-upload CSV</a>
+                <a href="{% url 'admin:users_user_changelist' %}" class="btn">Back to User List</a>
+                
+                <form method="post" action="{% url 'admin:users_user_changelist' %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" name="download_error_csv" class="btn">Download Error Report</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>

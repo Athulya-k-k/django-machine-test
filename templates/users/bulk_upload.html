@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bulk Upload Users</title>
+    <style>
+        .container { max-width: 600px; margin: 50px auto; padding: 20px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="file"] { width: 100%; padding: 8px; }
+        .btn { background: #007cba; color: white; padding: 10px 20px; border: none; cursor: pointer; }
+        .btn:hover { background: #005a87; }
+        .messages { margin-bottom: 20px; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Bulk Upload Users</h1>
+        
+        <div class="messages">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="{{ message.tags }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        </div>
+
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label for="id_csv_file">CSV File:</label>
+                {{ form.csv_file }}
+                <small>{{ form.csv_file.help_text }}</small>
+            </div>
+
+            <button type="submit" class="btn">Upload</button>
+            <a href="{% url 'admin:users_user_changelist' %}" style="margin-left: 10px;">Cancel</a>
+        </form>
+
+        <div style="margin-top: 30px;">
+            <h3>CSV Format:</h3>
+            <p>Your CSV file should have the following columns:</p>
+            <ul>
+                <li><strong>name</strong>: User's name (string)</li>
+                <li><strong>email</strong>: User's email (must be unique)</li>
+                <li><strong>wallet_balance</strong>: Initial wallet balance (number)</li>
+            </ul>
+            
+            <h4>Example CSV:</h4>
+            <pre>
+name,email,wallet_balance
+John Doe,john@example.com,100.00
+Jane Smith,jane@example.com,150.50
+            </pre>
+        </div>
+    </div>
+</body>
+</html>

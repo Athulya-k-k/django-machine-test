@@ -1,0 +1,4 @@
+Django==4.2.7
+celery==5.3.4
+redis==5.0.1
+pandas==2.1.3
